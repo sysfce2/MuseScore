@@ -6,10 +6,6 @@
 #include "translation.h"
 #include "stringutils.h"
 
-// Note that this isn't ideal to be a dependency here; however the audio resource structure is limited in data storage and
-// so MuseSampler packs extra info into the resourceMeta.id field.  Including the helper here avoids code duplication.
-#include "musesampler/internal/musesamplerutils.h"
-
 using namespace mu::playback;
 using namespace mu::audio;
 
@@ -32,6 +28,7 @@ void InputResourceItem::requestAvailableResources()
 
         if (!isBlank()) {
             const QString& currentResourceId = QString::fromStdString(m_currentInputParams.resourceMeta.id);
+
             result << buildMenuItem(currentResourceId,
                                     currentResourceId,
                                     true /*checked*/);
@@ -131,9 +128,6 @@ QVariantMap InputResourceItem::buildMuseMenuItem(const ResourceByVendorMap& reso
     QVariantList subItemsByType;
 
     for (const auto& pair : resourcesByVendor) {
-        const QString& vendor = QString::fromStdString(pair.first);
-
-        QVariantList subItemsByVendor;
 
         std::map<std::string, std::vector<std::tuple<int, std::string, const AudioResourceMeta*>>> categoryMap;
         for (const AudioResourceMeta& resourceMeta : pair.second) {
@@ -158,16 +152,11 @@ QVariantMap InputResourceItem::buildMuseMenuItem(const ResourceByVendorMap& reso
             }
 
             const QString& categoryString = QString::fromStdString(category.first);
-            subItemsByVendor << buildMenuItem(categoryString,
-                                              categoryString,
-                                              currentCategory == category.first,
-                                              subItemsByCategory);
+            subItemsByType << buildMenuItem(categoryString,
+                                            categoryString,
+                                            currentCategory == category.first,
+                                            subItemsByCategory);
         }
-
-        subItemsByType << buildMenuItem(vendor,
-                                        vendor,
-                                        m_currentInputParams.resourceMeta.vendor == pair.first,
-                                        subItemsByVendor);
     }
 
     return buildMenuItem(MUSE_MENU_ITEM_ID,
