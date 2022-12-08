@@ -398,7 +398,12 @@ QJsonObject ProjectAudioSettings::unitConfigToJson(const audio::AudioUnitConfig&
 
     for (const auto& pair : config) {
         QByteArray byteArray = QByteArray::fromRawData(pair.second.c_str(), static_cast<int>(pair.second.size()));
-        result.insert(QString::fromStdString(pair.first), QString(byteArray.toBase64()));
+
+        if (pair.first != "componentState") {
+            result.insert(QString::fromStdString(pair.first), QString(byteArray.toBase64()));
+        } else {
+            result.insert(QString::fromStdString(pair.first), QString());
+        }
     }
 
     return result;
