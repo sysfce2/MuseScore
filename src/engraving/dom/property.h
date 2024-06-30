@@ -101,6 +101,7 @@ enum class Pid {
     MIRROR_HEAD,
     HEAD_HAS_PARENTHESES,
     DOT_POSITION,
+    COMBINE_VOICE,
     TUNING,
     PAUSE,
 
@@ -362,8 +363,14 @@ enum class Pid {
     AVOID_BARLINES, // meant for Dynamics
     DYNAMICS_SIZE,
     CENTER_ON_NOTEHEAD,
-    SNAP_TO_DYNAMICS,
     ANCHOR_TO_END_OF_PREVIOUS,
+
+    SNAP_TO_DYNAMICS, // pre-4.4 version of the property, specific for expression
+    SNAP_BEFORE,
+    SNAP_AFTER,
+
+    APPLY_TO_VOICE,
+    CENTER_BETWEEN_STAVES,
 
     POS_ABOVE,
 

@@ -185,6 +185,7 @@ const std::array<StyleDef::StyleValue, size_t(Sid::STYLES)> StyleDef::styleValue
     { Sid::stemLengthSmall,         "stemLengthSmall",         PropertyValue(2.25) },
     { Sid::shortStemStartLocation,  "shortStemStartLocation",  1 },
     { Sid::shortestStem,            "shortestStem",            PropertyValue(2.5) },
+    { Sid::combineVoice,            "combineVoice",            true },
     { Sid::beginRepeatLeftMargin,   "beginRepeatLeftMargin",   Spatium(1.0) },
     { Sid::minNoteDistance,         "minNoteDistance",         Spatium(0.5) },
     { Sid::barNoteDistance,         "barNoteDistance",         Spatium(1.3) },     // was 1.2
@@ -662,10 +663,15 @@ const std::array<StyleDef::StyleValue, size_t(Sid::STYLES)> StyleDef::styleValue
     { Sid::scaleBarlines,           "scaleBarlines",           false },
     { Sid::barGraceDistance,        "barGraceDistance",        Spatium(1.0) },
     { Sid::minVerticalDistance,     "minVerticalDistance",     Spatium(0.5) },
+    { Sid::skylineMinHorizontalClearance, "minVerticalDistance", Spatium(0.25) },
     { Sid::ornamentStyle,           "ornamentStyle",           int(OrnamentStyle::DEFAULT) },
     { Sid::spatium,                 "Spatium",                 24.8 },
 
     { Sid::autoplaceHairpinDynamicsDistance, "autoplaceHairpinDynamicsDistance", Spatium(0.5) },
+
+    { Sid::dynamicsHairpinVoiceBasedPlacement, "dynamicsHairpinVoiceBasedPlacement", DirectionV::AUTO },
+    { Sid::dynamicsHairpinsAutoCenterOnGrandStaff, "dynamicsHairpinsAutoCenterOnGrandStaff", true },
+    { Sid::dynamicsHairpinsAboveForVocalStaves, "dynamicsHairpinsAboveForVocalStaves", true },
 
     { Sid::dynamicsOverrideFont,    "dynamicsOverrideFont",    false },
     { Sid::dynamicsFont,            "dynamicsFont",            PropertyValue(String(u"Leland")) },

@@ -90,9 +90,7 @@ void AbstractNotationPaintView::load()
     TRACEFUNC;
 
     //! NOTE For diagnostic tools
-    static bool once = false;
-    if (!once) {
-        once = true;
+    if (!dispatcher()->isReg(this)) {
         dispatcher()->reg(this, "diagnostic-notationview-redraw", [this]() {
             scheduleRedraw();
         });
@@ -1325,8 +1323,8 @@ void AbstractNotationPaintView::onPlayingChanged()
     m_enableAutoScrollTimer.stop();
 
     if (isPlaying) {
-        float playPosSec = playbackController()->playbackPositionInSeconds();
-        muse::midi::tick_t tick = notationPlayback()->secToTick(playPosSec);
+        audio::secs_t pos = globalContext()->playbackState()->playbackPosition();
+        muse::midi::tick_t tick = notationPlayback()->secToTick(pos);
         movePlaybackCursor(tick);
     } else {
         scheduleRedraw();

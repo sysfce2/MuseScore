@@ -175,6 +175,11 @@ EngravingItemList EngravingItem::childrenItems(bool all) const
     return list;
 }
 
+const muse::modularity::ContextPtr& EngravingItem::iocContext() const
+{
+    return score()->iocContext();
+}
+
 const std::shared_ptr<IEngravingConfiguration>& EngravingItem::configuration() const
 {
     return score()->configuration.get();
@@ -639,7 +644,14 @@ Color EngravingItem::curColor(bool isVisible, Color normalColor) const
     }
 
     if (selected() || marked) {
-        return configuration()->selectionColor(track() == muse::nidx ? 0 : voice(), isVisible, isUnlinkedFromMaster());
+        voice_idx_t voiceForColorChoice = track() == muse::nidx ? 0 : voice();
+        if (hasVoiceApplicationProperties()) {
+            VoiceApplication voiceApplication = getProperty(Pid::APPLY_TO_VOICE).value<VoiceApplication>();
+            if (voiceApplication != VoiceApplication::CURRENT_VOICE_ONLY) {
+                voiceForColorChoice = VOICES;
+            }
+        }
+        return configuration()->selectionColor(voiceForColorChoice, isVisible, isUnlinkedFromMaster());
     }
 
     if (!isVisible) {
@@ -994,7 +1006,7 @@ muse::ByteArray EngravingItem::mimeData(const PointF& dragOffset) const
         xml.tagPoint("dragOffset", dragOffset);
     }
 
-    rw::RWRegister::writer()->writeItem(this, xml);
+    rw::RWRegister::writer(iocContext())->writeItem(this, xml);
 
     xml.endElement();
     buffer.close();
@@ -1267,6 +1279,73 @@ void EngravingItem::manageExclusionFromParts(bool exclude)
         }
     } else {
         score()->undoAddElement(this, /*addToLinkedStaves*/ true, /*ctrlModifier*/ false, this);
+    }
+}
+
+bool EngravingItem::appliesToAllVoicesInInstrument() const
+{
+    return hasVoiceApplicationProperties()
+           && getProperty(Pid::APPLY_TO_VOICE).value<VoiceApplication>() == VoiceApplication::ALL_VOICE_IN_INSTRUMENT;
+}
+
+void EngravingItem::setInitialTrackAndVoiceApplication(track_idx_t track)
+{
+    IF_ASSERT_FAILED(track != muse::nidx) {
+        return;
+    }
+
+    if (configuration()->dynamicsApplyToAllVoices()) {
+        setTrack(trackZeroVoice(track));
+        setProperty(Pid::APPLY_TO_VOICE, VoiceApplication::ALL_VOICE_IN_INSTRUMENT);
+    } else {
+        setTrack(track);
+        setProperty(Pid::APPLY_TO_VOICE, VoiceApplication::CURRENT_VOICE_ONLY);
+    }
+}
+
+void EngravingItem::checkVoiceApplicationCompatibleWithTrack()
+{
+    voice_idx_t currentVoice = voice();
+    VoiceApplication voiceApplication = getProperty(Pid::APPLY_TO_VOICE).value<VoiceApplication>();
+
+    if (voiceApplication != VoiceApplication::CURRENT_VOICE_ONLY && currentVoice != 0) {
+        setProperty(Pid::TRACK, trackZeroVoice(track()));
+    }
+}
+
+void EngravingItem::setPlacementBasedOnVoiceApplication(DirectionV styledDirection)
+{
+    PlacementV oldPlacement = placement();
+    bool offsetIsStyled = isStyled(Pid::OFFSET);
+
+    PlacementV newPlacement;
+
+    DirectionV internalDirectionProperty = getProperty(Pid::DIRECTION).value<DirectionV>();
+    if (internalDirectionProperty != DirectionV::AUTO) {
+        newPlacement = internalDirectionProperty == DirectionV::UP ? PlacementV::ABOVE : PlacementV::BELOW;
+    } else if (styledDirection != DirectionV::AUTO) {
+        newPlacement = styledDirection == DirectionV::UP ? PlacementV::ABOVE : PlacementV::BELOW;
+    } else if (part()->nstaves() > 1 && getProperty(Pid::CENTER_BETWEEN_STAVES).value<AutoOnOff>() == AutoOnOff::ON) {
+        bool isOnLastStaffOfInstrument = staffIdx() == part()->staves().back()->idx();
+        newPlacement = isOnLastStaffOfInstrument ? PlacementV::ABOVE : PlacementV::BELOW;
+    } else {
+        VoiceApplication voiceApplication = getProperty(Pid::APPLY_TO_VOICE).value<VoiceApplication>();
+        if (voiceApplication == VoiceApplication::ALL_VOICE_IN_INSTRUMENT || voiceApplication == VoiceApplication::ALL_VOICE_IN_STAFF) {
+            if (style().styleB(Sid::dynamicsHairpinsAboveForVocalStaves) && part()->instrument()->isVocalInstrument()) {
+                newPlacement = PlacementV::ABOVE;
+            } else {
+                newPlacement = PlacementV::BELOW;
+            }
+        } else {
+            newPlacement = voice() % 2 ? PlacementV::BELOW : PlacementV::ABOVE;
+        }
+    }
+
+    if (newPlacement != oldPlacement) {
+        setPlacement(newPlacement);
+        if (offsetIsStyled) {
+            resetProperty(Pid::OFFSET);
+        }
     }
 }
 
@@ -2478,6 +2557,42 @@ void EngravingItem::LayoutData::setBbox(const RectF& r)
     m_shape.set_value(Shape(r, m_item, Shape::Type::Fixed));
 }
 
+void EngravingItem::LayoutData::connectItemSnappedBefore(EngravingItem* itemBefore)
+{
+    IF_ASSERT_FAILED(itemBefore && itemBefore != m_item && itemBefore != m_itemSnappedAfter) {
+        return;
+    }
+    m_itemSnappedBefore = itemBefore;
+    itemBefore->mutldata()->m_itemSnappedAfter = const_cast<EngravingItem*>(m_item);
+}
+
+void EngravingItem::LayoutData::disconnectItemSnappedBefore()
+{
+    if (!m_itemSnappedBefore) {
+        return;
+    }
+    m_itemSnappedBefore->mutldata()->m_itemSnappedAfter = nullptr;
+    m_itemSnappedBefore = nullptr;
+}
+
+void EngravingItem::LayoutData::connectItemSnappedAfter(EngravingItem* itemAfter)
+{
+    IF_ASSERT_FAILED(itemAfter && itemAfter != m_item && itemAfter != m_itemSnappedBefore) {
+        return;
+    }
+    m_itemSnappedAfter = itemAfter;
+    itemAfter->mutldata()->m_itemSnappedBefore = const_cast<EngravingItem*>(m_item);
+}
+
+void EngravingItem::LayoutData::disconnectItemSnappedAfter()
+{
+    if (!m_itemSnappedAfter) {
+        return;
+    }
+    m_itemSnappedAfter->mutldata()->m_itemSnappedBefore = nullptr;
+    m_itemSnappedAfter = nullptr;
+}
+
 const RectF& EngravingItem::LayoutData::bbox(LD_ACCESS mode) const
 {
     //! NOTE Temporary disabled CHECK - a lot of messages
@@ -2588,6 +2703,11 @@ void EngravingItem::LayoutData::doSetPosDebugHook(double x, double y)
     UNUSED(y);
 }
 
+void EngravingItem::LayoutData::setWidthDebugHook(double w)
+{
+    UNUSED(w);
+}
+
 #endif
 
 void EngravingItem::LayoutData::dump(std::stringstream& ss) const
@@ -2616,6 +2736,13 @@ double EngravingItem::mag() const
         return 1.0;
     }
     return ldata()->mag();
+}
+
+PointF EngravingItem::staffOffset() const
+{
+    const StaffType* st = staffType();
+    const double yOffset = st ? st->yoffset().val() * spatium() : 0.0;
+    return PointF(0.0, yOffset);
 }
 
 void EngravingItem::setOffsetChanged(bool val, bool absolute, const PointF& diff)

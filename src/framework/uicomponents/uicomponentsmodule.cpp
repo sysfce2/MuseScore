@@ -34,9 +34,10 @@
 #include "view/filepickermodel.h"
 #include "view/colorpickermodel.h"
 #include "view/itemmultiselectionmodel.h"
-#include "view/textinputfieldmodel.h"
+#include "view/textinputmodel.h"
 #include "view/selectmultipledirectoriesmodel.h"
 #include "view/buttonboxmodel.h"
+#include "view/abstracttoolbarmodel.h"
 
 #include "view/treeview/qquicktreemodeladaptor_p.h"
 #include "view/treeview/qquickrangemodel_p.h"
@@ -109,7 +110,7 @@ void UiComponentsModule::registerUiTypes()
     qmlRegisterType<ColorPickerModel>("Muse.UiComponents", 1, 0, "ColorPickerModel");
     qmlRegisterType<ItemMultiSelectionModel>("Muse.UiComponents", 1, 0, "ItemMultiSelectionModel");
 
-    qmlRegisterType<TextInputFieldModel>("Muse.UiComponents", 1, 0, "TextInputFieldModel");
+    qmlRegisterType<TextInputModel>("Muse.UiComponents", 1, 0, "TextInputModel");
     qmlRegisterType<SelectMultipleDirectoriesModel>("Muse.UiComponents", 1, 0, "SelectMultipleDirectoriesModel");
     qmlRegisterType<ButtonBoxModel>("Muse.UiComponents", 1, 0, "ButtonBoxModel");
 
@@ -120,6 +121,8 @@ void UiComponentsModule::registerUiTypes()
     qmlRegisterType<QQuickPadding1>("Muse.UiComponents.Private", 1, 0, "Padding");
     qmlRegisterUncreatableType<QQuickSelectionMode1>("Muse.UiComponents.Private", 1, 0, "SelectionMode",
                                                      QLatin1String("Do not create objects of type SelectionMode"));
+
+    qmlRegisterUncreatableType<ToolBarItemType>("Muse.UiComponents", 1, 0, "ToolBarItemType", "Cannot create a ToolBarItemType");
 
     auto ui = ioc()->resolve<ui::IUiEngine>(moduleName());
     if (ui) {

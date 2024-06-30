@@ -186,8 +186,6 @@ Score::Score(MasterScore* parent, bool forcePartStyle /* = true */)
         // inherit most style settings from parent
         m_style = parent->style();
 
-        checkChordList();
-
         static const Sid styles[] = {
             Sid::pageWidth,
             Sid::pageHeight,
@@ -215,6 +213,7 @@ Score::Score(MasterScore* parent, bool forcePartStyle /* = true */)
     }
     // update style values
     m_style.precomputeValues();
+    checkChordList();
     m_synthesizerState = parent->m_synthesizerState;
     m_mscVersion = parent->m_mscVersion;
     createPaddingTable();
@@ -752,15 +751,9 @@ void Score::setMarkIrregularMeasures(bool v)
     m_markIrregularMeasures = v;
 }
 
-void Score::updateShowAnchors(staff_idx_t staffIdx, const Fraction& startTick, const Fraction& endTick)
+void Score::setShowAnchors(const ShowAnchors& showAnchors)
 {
-    m_showAnchors.staffIdx = staffIdx;
-    if (m_showAnchors.startTick == Fraction(-1, 1) || startTick < m_showAnchors.startTick) {
-        m_showAnchors.startTick = startTick;
-    }
-    if (m_showAnchors.endTick == Fraction(-1, 1) || endTick > m_showAnchors.endTick) {
-        m_showAnchors.endTick = endTick;
-    }
+    m_showAnchors = showAnchors;
 }
 
 //---------------------------------------------------------
@@ -1512,6 +1505,7 @@ void Score::addElement(EngravingItem* element)
     break;
 
     case ElementType::DYNAMIC:
+        toDynamic(element)->checkMeasureBoundariesAndMoveIfNeed();
         setPlaylistDirty();
         break;
 

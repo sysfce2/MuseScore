@@ -44,12 +44,14 @@
 #include "engraving/dom/lyrics.h"
 #include "engraving/dom/marker.h"
 #include "engraving/dom/measure.h"
+#include "engraving/dom/measurerepeat.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/ornament.h"
 #include "engraving/dom/ottava.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/pedal.h"
 #include "engraving/dom/playtechannotation.h"
+#include "engraving/dom/rehearsalmark.h"
 #include "engraving/dom/rest.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/segment.h"
@@ -444,6 +446,8 @@ EngravingItem* MeiImporter::addAnnotation(const libmei::Element& meiElement, Mea
         } else {
             item = Factory::createHarmony(chordRest->segment());
         }
+    } else if (meiElement.m_name == "reh") {
+        item = Factory::createRehearsalMark(chordRest->segment());
     } else if (meiElement.m_name == "tempo") {
         item = Factory::createTempoText(chordRest->segment());
     } else {
@@ -533,7 +537,7 @@ EngravingItem* MeiImporter::addToChordRest(const libmei::Element& meiElement, Me
         if (chordRest->isChord()) {
             item = Factory::createArpeggio(toChord(chordRest));
         }
-    } else if (meiElement.m_name == "artic") {
+    } else if (meiElement.m_name == "artic" || meiElement.m_name == "lv") {
         item = Factory::createArticulation(chordRest);
     } else {
         return nullptr;
@@ -1251,6 +1255,16 @@ bool MeiImporter::readSectionElements(pugi::xml_node parentNode)
 {
     bool success = true;
 
+    libmei::Section meiSection;
+    meiSection.Read(parentNode);
+
+    if (meiSection.HasRestart() && meiSection.GetRestart() == libmei::BOOLEAN_true) {
+        MeasureBase* lastMeasureBase = !m_score->measures()->empty() ? m_score->measures()->last() : nullptr;
+        if (lastMeasureBase) {
+            m_score->insertBox(ElementType::HBOX, lastMeasureBase);
+        }
+    }
+
     pugi::xpath_node_set elements = parentNode.select_nodes("./*");
     for (pugi::xpath_node xpathNode : elements) {
         std::string elementName = std::string(xpathNode.node().name());
@@ -1840,6 +1854,10 @@ bool MeiImporter::readMRpt(pugi::xml_node mRptNode, Measure* measure, int track,
     libmei::MRpt meiMRpt;
     meiMRpt.Read(mRptNode);
 
+    if (meiMRpt.GetExpand() == libmei::BOOLEAN_true) {
+        LOGD() << "MeiImporter::readMRpt cannot expand measure repeats";
+    }
+
     Segment* segment = measure->getSegment(SegmentType::ChordRest, ticks + measure->tick());
     MeasureRepeat* measureRepeat = Factory::createMeasureRepeat(segment);
     Convert::colorFromMEI(measureRepeat, meiMRpt);
@@ -2184,6 +2202,8 @@ bool MeiImporter::readControlEvents(pugi::xml_node parentNode, Measure* measure)
             } else {
                 success = success && this->readHarm(xpathNode.node(), measure);
             }
+        } else if (elementName == "lv") {
+            success = success && this->readLv(xpathNode.node(), measure);
         } else if (elementName == "mordent") {
             success = success && this->readMordent(xpathNode.node(), measure);
         } else if (elementName == "octave") {
@@ -2192,6 +2212,8 @@ bool MeiImporter::readControlEvents(pugi::xml_node parentNode, Measure* measure)
             success = success && this->readOrnam(xpathNode.node(), measure);
         } else if (elementName == "pedal") {
             success = success && this->readPedal(xpathNode.node(), measure);
+        } else if (elementName == "reh") {
+            success = success && this->readReh(xpathNode.node(), measure);
         } else if (elementName == "repeatMark") {
             success = success && this->readRepeatMark(xpathNode.node(), measure);
         } else if (elementName == "slur") {
@@ -2525,6 +2547,31 @@ bool MeiImporter::readHarm(pugi::xml_node harmNode, Measure* measure)
 }
 
 /**
+ * Read a lv.
+ */
+
+bool MeiImporter::readLv(pugi::xml_node lvNode, Measure* measure)
+{
+    IF_ASSERT_FAILED(measure) {
+        return false;
+    }
+
+    bool warning;
+    libmei::Lv meiLv;
+    meiLv.Read(lvNode);
+
+    Articulation* lv = static_cast<Articulation*>(this->addToChordRest(meiLv, measure));
+    if (!lv) {
+        // Warning message given in MeiImporter::addToChordRest
+        return true;
+    }
+
+    Convert::lvFromMEI(lv, meiLv, warning);
+
+    return true;
+}
+
+/**
  * Read a mordent.
  */
 
@@ -2622,6 +2669,35 @@ bool MeiImporter::readPedal(pugi::xml_node pedalNode, Measure* measure)
     }
 
     Convert::pedalFromMEI(pedal, meiPedal, warning);
+
+    return true;
+}
+
+/**
+ * Read a reh.
+ */
+
+bool MeiImporter::readReh(pugi::xml_node rehNode, Measure* measure)
+{
+    IF_ASSERT_FAILED(measure) {
+        return false;
+    }
+
+    libmei::Reh meiReh;
+    meiReh.Read(rehNode);
+
+    RehearsalMark* rehearsalMark = static_cast<RehearsalMark*>(this->addAnnotation(meiReh, measure));
+    if (!rehearsalMark) {
+        // Warning message given in MeiImporter::addAnnotation
+        return true;
+    }
+    Convert::colorFromMEI(rehearsalMark, meiReh);
+
+    StringList meiLines;
+    this->readLinesWithSmufl(rehNode, meiLines);
+
+    // text
+    rehearsalMark->setXmlText(meiLines.join(u"\n"));
 
     return true;
 }

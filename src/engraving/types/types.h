@@ -325,6 +325,18 @@ enum class Orientation : signed char {
     HORIZONTAL
 };
 
+enum class AutoOnOff : char {
+    AUTO,
+    ON,
+    OFF
+};
+
+enum class VoiceApplication {
+    ALL_VOICE_IN_INSTRUMENT,
+    ALL_VOICE_IN_STAFF,
+    CURRENT_VOICE_ONLY
+};
+
 // P_TYPE::BEAM_MODE
 //! Note: for historical reasons, these have strange names
 //!
@@ -594,6 +606,8 @@ enum class DynamicType : char {
     SFZ,
     SFF,
     SFFZ,
+    SFFF,
+    SFFFZ,
     SFP,
     SFPP,
     RFZ,
